@@ -12,10 +12,10 @@ P = get_parameters()
 
 # Function to plot descriptives
 plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
-  
-  # Load data 
+
+  # Load data
   datalist = prepare_data(name_dataset, filepath_base, P$event_dicts, rerun = rerun)
-  
+
   # Set height and width of figure
   if (name_dataset == "HILDA"){
     height = 160
@@ -25,16 +25,24 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     max_char = 25
   }
   text_size = 10
-  
+
   # Frequency dataframe
   df_freq = datalist$df_per_event %>%
     filter(valence == "negative") %>%
     dplyr::mutate(dataset = !!name_dataset,
                   perc_occur = nr_occur / (nr_occur + nr_nooccur) * 100,
                   perc_occur_incl_missing = nr_occur / (nr_occur + nr_nooccur + nr_missing_occur) * 100,
-                  sum_n = nr_occur + nr_nooccur + nr_missing_occur) %>%
-    recode_events(., "event", P$event_dicts[[name_dataset]], df_per_event = datalist$df_per_event)
-  
+                  sum_n = nr_occur + nr_nooccur + nr_missing_occur) #%>%
+    # recode_events(., "event", P$event_dicts[[name_dataset]], df_per_event = datalist$df_per_event)
+
+  # Order events by frequency
+  df_freq = df_freq %>%
+    dplyr::mutate_at("event",
+                     ~ dplyr::recode_factor(.x, !!!tibble::deframe(P$event_dicts[[name_dataset]] %>%
+                                                                     dplyr::select(recode_var, description) %>%
+                                                                     # Order events in event_dict according to frequency
+                                                                     dplyr::slice(match(df_freq %>% dplyr::arrange(perc_occur_incl_missing) %>% dplyr::pull(event) %>% as.character(), recode_var))), .ordered = T))
+
   # Absolute event frequency
   pl_negevent_abs_freq = df_freq %>%
     ggplot() +
@@ -54,17 +62,17 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     scale_x_continuous(n.breaks = 4, expand = expansion(mult = c(0, .075))) +
     labs(x = "Frequency in person-years", y = "", title = "Event frequency\nacross people and years")
   pl_negevent_abs_freq
-  
+
   save_plot(pl_negevent_abs_freq, file.path(datalist$filepath_figs_dataset, sprintf("%s_absolute_frequency_per_negevent.pdf", name_dataset)), height = height)
-  
-  # Relative event frequency 
+
+  # Relative event frequency
   # Find at what percentages 10000 instances are
   x = seq(10000, ifelse(name_dataset == "SHP", 50000, 40000), by = 10000)
   perc_10000_instances = data.frame(x = x, perc = x / median(df_freq$sum_n) * 100)
-  
+
   pl_negevent_freq = df_freq %>%
     ggplot() +
-    geom_vline(data = perc_10000_instances, 
+    geom_vline(data = perc_10000_instances,
                aes(xintercept = perc), linetype = 'dashed', color = 'grey80') +
     geom_bar(aes(x = perc_occur_incl_missing, y = event), col = P$col_data, fill = P$col_data, stat = 'identity', alpha = .6) +
     geom_text(aes(x = perc_occur_incl_missing + ifelse(name_dataset == "SHP", .03 * 100, .02 * 100), y = event, label = sprintf("%.2f%%", perc_occur_incl_missing)), col = 'grey30', family = P$font_family,
@@ -84,12 +92,12 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     scale_x_continuous(n.breaks = 4, expand = expansion(mult = c(0, .1))) +
     labs(x = "Frequency (%) of events across all person-years", y = "", title = "Event frequency\nacross people and years")
   pl_negevent_freq
-  
+
   save_plot(pl_negevent_freq, file.path(datalist$filepath_figs_dataset, sprintf("%s_frequency_per_negevent.pdf", name_dataset)), height = height)
-  
-  
+
+
   # Number of events per year
-  
+
   # Plot number of events across years
   pl_nr_events = datalist$df_nr_negevents_pp_py %>%
     filter(!is.na(t_id)) %>%
@@ -97,9 +105,9 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     dplyr::summarise(n = n(), .groups = 'drop') %>%
     mutate(n_norm = n / sum(n)) %>%
     ggplot() +
-    geom_bar(aes(x = nr_occur, y = n), stat = 'identity')+ 
+    geom_bar(aes(x = nr_occur, y = n), stat = 'identity')+
     P$own_theme +
-    theme( 
+    theme(
       panel.grid.minor = element_blank(),
     ) +
     scale_y_continuous(n.breaks = 5, expand = expansion(mult = c(0, .01))) +
@@ -109,8 +117,8 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     labs(title ="", subtitle = "")
   pl_nr_events
   save_plot(pl_nr_events, file.path(datalist$filepath_figs_dataset, sprintf("%s_distribution_nr_events_across_years.pdf", name_dataset)), height = 150)
-  
-  
+
+
   # Plot number of events per observation year
   pl_nr_events_py = datalist$df_nr_negevents_pp_py %>%
     filter(!is.na(t_id)) %>%
@@ -121,7 +129,7 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     mutate(t_id_label = sprintf("Year %02d, n = %d", t_id, sum(n)) %>% stringr::str_wrap(width = 9)) %>%
     ungroup() %>%
     ggplot() +
-    geom_bar(aes(x = nr_occur, y = n_norm), stat = 'identity')+ 
+    geom_bar(aes(x = nr_occur, y = n_norm), stat = 'identity')+
     P$own_theme +
     theme(axis.text.y = element_text(size=7),
           plot.title = element_text(hjust = .5),
@@ -140,7 +148,7 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
           strip.text.y = element_text(angle = 0))
   pl_nr_events_py
   save_plot(pl_nr_events_py, file.path(datalist$filepath_figs_dataset, sprintf("%s_distribution_nr_events_per_year.pdf", name_dataset)), height = 200)
-  
+
   # Distribution of number of events across years in area plot
   pl_event_distr_over_time = datalist$df_nr_negevents_pp_py %>%
     filter(!is.na(t_id)) %>%
@@ -174,10 +182,10 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     ) + guides(fill = guide_legend(nrow =2, direction = "horizontal",
                                    title.position = "top"))
   pl_event_distr_over_time
-  
-  save_plot(pl_event_distr_over_time, 
+
+  save_plot(pl_event_distr_over_time,
             file.path(datalist$filepath_figs_dataset, sprintf("%s_areaplot_nr_events_per_year.pdf", name_dataset)), height = 160)
-  
+
   # Cumulative number of events
   pl_cum_distr = datalist$df_nr_negevents_pp_py %>%
     group_by(t_id, nr_occur_cumsum) %>%
@@ -206,11 +214,11 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
       strip.text.y.left = element_text(size = 9, angle = 0, margin = margin(t = 1, r = 1, b = 1, l = 1)),
       legend.position = 'right') +
     labs(title = sprintf("Empirical distribution of\ncumulative number of life events (%s)", name_dataset),
-         y = "Frequency (normalized)", x = "Number of events per person") 
+         y = "Frequency (normalized)", x = "Number of events per person")
   pl_cum_distr
-  
+
   save_plot(pl_cum_distr, file.path(datalist$filepath_figs_dataset, sprintf("%s_emp_cumulative_nr_events_per_year.pdf", name_dataset)), height = 220)
-  
+
   return(list(
     datalist = datalist,
     df_freq = df_freq,
@@ -225,23 +233,23 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
 
 # Function to get numerical descriptives
 num_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
-  
+
   # Load data
   datalist = prepare_data(name_dataset, filepath_base, P$event_dicts, rerun = rerun)
-  
+
   # Set up storage
   res <- data.frame(dataset = name_dataset)
-  
+
   # Top two most frequent events
   df_ = datalist$df_per_event %>% filter(valence == "negative") %>% arrange(desc(nr_occur)) %>%
     mutate(event = as.character(event)) %>%
     mutate(nr_occur_norm = nr_occur / sum(nr_occur))
-  
+
   res$top1_event = df_$event[1]
   res$top2_event = df_$event[2]
   res$total_nr_neg_events = sum(df_$nr_occur)
   res$perc_top_two_neg_events = sprintf("The top two events were responsible for %.2f%% of all events", sum(df_ %>% slice(1:2) %>% pull(nr_occur)) / res$total_nr_neg_events * 100)
-  
+
   # Number of person-years < 18
   res$nr_personyears_underage = datalist$df_binary %>%
     # Only adults
@@ -249,24 +257,24 @@ num_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     dplyr::select(p_id, wave_nr) %>%
     distinct() %>%
     nrow()
-  
+
   # Co-occurrence
   df_ = datalist$df_nr_negevents_pp_py %>%
     filter(!is.na(t_id)) %>%
     group_by(nr_occur) %>%
     dplyr::summarise(n = n(), .groups = 'drop') %>%
-    mutate(n_norm = n / sum(n)) 
+    mutate(n_norm = n / sum(n))
   res$perc_no_event = df_ %>% filter(nr_occur == 0) %>% pull(n_norm)
   res$perc_one_event = df_ %>% filter(nr_occur == 1) %>% pull(n_norm)
   res$perc_cooccur = df_ %>% filter(nr_occur > 1) %>% pull(n_norm) %>% sum()
-  
+
   # Viewed another way: when an event occurs, how often does it co-occur?
   df_ = df_ %>% filter(nr_occur > 0) %>% mutate(n_norm = n / sum(n))
   res$perc_one_event_if_event = df_ %>% filter(nr_occur == 1) %>% pull(n_norm)
   res$perc_cooccur_if_event = df_ %>% filter(nr_occur > 1) %>% pull(n_norm) %>% sum()
-  
+
   return(res)
-  
+
 }
 
 # Plot descriptives of SHP and HILDA
@@ -296,16 +304,16 @@ pl_negevent_freq = (plots_SHP$pl_negevent_freq + labs(title = "") +
   plot_layout(axis_titles = "collect")
 pl_negevent_freq
 
-save_plot(pl_negevent_freq, file.path(plots_SHP$datalist$filepath_figs, 
+save_plot(pl_negevent_freq, file.path(plots_SHP$datalist$filepath_figs,
                                       sprintf("frequency_per_negevent.pdf")), height = 115)
 
 
 # Create combined plots of SHP and HILDA: Consistency distribution over time
-pl_event_distr_over_time = ((plots_SHP$pl_event_distr_over_time + theme(legend.position = "none")) + 
+pl_event_distr_over_time = ((plots_SHP$pl_event_distr_over_time + theme(legend.position = "none")) +
                               (plots_HILDA$pl_event_distr_over_time + theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 300, unit = "pt"))) +
                               plot_layout(axis_titles = "collect")) + guide_area() +
-  plot_layout(guides = 'collect') + plot_layout(heights = c(1, .3)) 
+  plot_layout(guides = 'collect') + plot_layout(heights = c(1, .3))
 pl_event_distr_over_time
 
-save_plot(pl_event_distr_over_time, file.path(plots_SHP$datalist$filepath_figs, 
+save_plot(pl_event_distr_over_time, file.path(plots_SHP$datalist$filepath_figs,
                                               sprintf("areaplot_nr_events_per_year.pdf")), height = 120)

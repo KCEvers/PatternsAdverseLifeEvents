@@ -336,8 +336,8 @@ plot_cooccur = function(name_dataset, datalist, P, model_df, chosen_lead){
     theme(legend.position = 'bottom') +
     theme(axis.text.x=element_text(size=size_text, angle=90,hjust = 0,vjust = 1),
           axis.text.y=element_text(size=size_text),
-          axis.title.x.top=element_text(size=size_text_theme+4, margin = margin(b = 20)),
-          axis.title.y=element_text(size=size_text_theme+4, margin = margin(r = 20)),
+          axis.title.x.top=element_text(size=size_text_theme+4, margin = margin(b = 0)),
+          axis.title.y=element_text(size=size_text_theme+4, margin = margin(r = 0)),
           legend.text=element_text(size=size_text),
           legend.title=element_text(size=size_text+4),
           axis.title=element_text(size=size_text+4),
@@ -347,7 +347,7 @@ plot_cooccur = function(name_dataset, datalist, P, model_df, chosen_lead){
           panel.grid.minor = element_blank(),
           legend.spacing = unit(0, "cm"),    # Remove space between legend items
           legend.margin = margin(0, 0, 0, 0))
-  size_text = ifelse(name_dataset == "SHP", 1.8, 1.5)
+  size_text = ifelse(name_dataset == "SHP", 1.8, 1.5) - 0.1
   width_legendbar = 10
   height_legendbar = 1
   vjust = 0.6
@@ -406,7 +406,7 @@ plot_cooccur = function(name_dataset, datalist, P, model_df, chosen_lead){
   if (name_dataset == "HILDA"){
     height =  200
   } else if (name_dataset == "SHP"){
-    height = 180 #  200
+    height = 200 #  200
   }
 
   filepath_image = file.path(datalist$filepath_figs_dataset, sprintf("%s_heatmap_odds_ratio_lead%d.pdf", name_dataset, chosen_lead))

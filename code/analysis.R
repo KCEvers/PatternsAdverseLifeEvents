@@ -21,7 +21,7 @@ cl <- parallel::makeCluster(nr_cl)
 doParallel::registerDoParallel(cl)
 
 # Run co-occurrence analysis for different leads for both SHP and HILDA
-chosen_leads = c(0, 1) 
+chosen_leads = c(0, 1)
 SHP = run_cooccurrence("SHP", filepath_base, P, chosen_leads = chosen_leads)
 HILDA = run_cooccurrence("HILDA", filepath_base, P, chosen_leads = chosen_leads)
 parallel::stopCluster(cl)
@@ -40,25 +40,25 @@ df_to_latex("HILDA", 1, HILDA$conv_model_est$`1`, HILDA$datalist, P)
 
 ### Compute joint and conditional probabilities
 chosen_lags = c(0,1)
-SHP = run_joint_cond_prob("SHP", filepath_base, P, 
+SHP = run_joint_cond_prob("SHP", filepath_base, P,
                           chosen_lags = chosen_lags)
-HILDA = run_joint_cond_prob("HILDA", filepath_base, P, 
+HILDA = run_joint_cond_prob("HILDA", filepath_base, P,
                             chosen_lags = chosen_lags)
 
 # Plot joint and conditional probabilities in heatmap
 for (chosen_lag in chosen_lags){
   plot_joint_cond("SHP", SHP$datalist, SHP$prob_df, chosen_lag, P$event_dicts[["SHP"]], lag_event = "A", type = "joint_prob",
                   size_point = 9.5, size_text = 9, size_label = 2.5)
-  
+
   plot_joint_cond("SHP", SHP$datalist, SHP$prob_df, chosen_lag, P$event_dicts[["SHP"]], lag_event = "A", type = "cond_prob_given_eventB",
                   size_point = 9.5, size_text = 9, size_label = 2.5)
-  
-  plot_joint_cond("HILDA", HILDA$datalist, HILDA$prob_df, chosen_lag, P$event_dicts[["HILDA"]], lag_event = "A", type = "joint_prob", 
+
+  plot_joint_cond("HILDA", HILDA$datalist, HILDA$prob_df, chosen_lag, P$event_dicts[["HILDA"]], lag_event = "A", type = "joint_prob",
                   size_point = 8.5, size_text = 8, size_label = 2.2)
-  
-  plot_joint_cond("HILDA", HILDA$datalist, HILDA$prob_df, chosen_lag, P$event_dicts[["HILDA"]], lag_event = "A", type = "cond_prob_given_eventB", 
+
+  plot_joint_cond("HILDA", HILDA$datalist, HILDA$prob_df, chosen_lag, P$event_dicts[["HILDA"]], lag_event = "A", type = "cond_prob_given_eventB",
                   size_point = 8.5, size_text = 8, size_label = 2.2)
-  
+
 }
 
 
@@ -66,8 +66,8 @@ for (chosen_lag in chosen_lags){
 ##### LAGGED EVENT COUNTS #####
 
 # Run lagged analysis
-SHP = run_lagged("SHP", filepath_base, P)  
-HILDA = run_lagged("HILDA", filepath_base, P)  
+SHP = run_lagged("SHP", filepath_base, P)
+HILDA = run_lagged("HILDA", filepath_base, P)
 
 # Model convergence
 print(SHP$df_convergence)
@@ -81,8 +81,8 @@ print(HILDA$df_comp_AIC)
 print(HILDA$df_comp_BIC)
 
 # Choose model: model_random_int_slope fits best for HILDA but model_random_int_slope doesn't converge for SHP, for consistency use model_random_int for both
-model_SHP = SHP$model_random_int 
-model_HILDA = HILDA$model_random_int 
+model_SHP = SHP$model_random_int
+model_HILDA = HILDA$model_random_int
 
 summary(model_SHP)$nobs
 summary(model_SHP)$ngrps$cond
@@ -90,13 +90,13 @@ summary(model_SHP)$ngrps$cond
 summary(model_HILDA)$nobs
 summary(model_HILDA)$ngrps$cond
 
-# Summarise and check model  
+# Summarise and check model
 summlist_SHP = summarise_model(model_SHP)
 summlist_HILDA = summarise_model(model_HILDA)
 
 # Create table with estimates
 lagged_table(summlist_SHP, summlist_HILDA)
-  
+
 
 ##### ACCUMULATION EVENT COUNTS #####
 # Fit models
@@ -110,28 +110,13 @@ SHP$df_comp_BIC
 HILDA$df_comp_AIC
 HILDA$df_comp_BIC
 
-# Model estimates
-SHP$mod_summ_frailty$ICC
-SHP$mod_summ_polya$ICC
-HILDA$mod_summ_frailty$ICC
-HILDA$mod_summ_polya$ICC
-
-summary(SHP$mod_poisson)$nobs
-summary(SHP$mod_frailty)$nobs
-summary(SHP$mod_polya)$nobs
-summary(SHP$mod_polya)$ngrps$cond
-
-
-summary(HILDA$mod_polya)$nobs
-summary(HILDA$mod_polya)$ngrps$cond
-
 # Create table with estimates
 accumulation_table(SHP, HILDA)
-  
+
 
 ### Simulate cumulative count data for SHP and HILDA
 n_sim = 1000
-sim_types = c("Empirical", "Poisson", "Frailty", "Polya urn") 
+sim_types = c("Empirical", "Poisson", "Frailty", "Polya urn")
 df_SHP = simulate_data(SHP, n_sim, sim_types) %>%
   dplyr::mutate(dataset = "SHP")
 
@@ -139,7 +124,7 @@ df_HILDA = simulate_data(HILDA, n_sim, sim_types) %>%
   dplyr::mutate(dataset = "HILDA")
 
 
-# Prepare colors 
+# Prepare colors
 col_values = c(P$col_data, P$col_poisson, P$col_frailty, P$col_polya) %>%
   setNames(sim_types)
 fill_values =  c(P$fill_data, P$fill_poisson, P$fill_frailty, P$fill_polya) %>%
@@ -172,7 +157,7 @@ heavy_tails_table(SHP_tails$df_est, HILDA_tails$df_est)
 pl1 = SHP_tails$pl
 pl2 = HILDA_tails$pl
 
-pl = ((pl1 + theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 225, unit = "pt")) + 
+pl = ((pl1 + theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 225, unit = "pt")) +
          (pl2 + theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 225, unit = "pt"))) +
          plot_layout(axis_titles = "collect")) + guide_area() +
         plot_layout(guides = 'collect') + plot_layout(heights = c(1, .1)) )
