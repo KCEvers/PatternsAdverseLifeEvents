@@ -2,7 +2,7 @@
 
 # Run co-occurrence analysis for one dataset
 run_cooccurrence = function(name_dataset, filepath_base, P,
-                            chosen_leads = c(0,1), rerun = F){
+                            chosen_leads = c(0,1), rerun = FALSE){
 
   # Prepare data
   datalist = prepare_data(name_dataset, filepath_base, P$event_dicts, rerun = rerun)
@@ -183,7 +183,13 @@ pick_model = function(model_list, negevent_names, datalist, name_dataset, chosen
 
   # Plot AIC
   pl = model_check_df %>%
-    ggplot() + geom_point(aes(x = model_type, y = AIC,col=model_type), size = 2) + ggh4x::facet_wrap2(response ~ ., scales = "free_y", ncol = 3)  + P$own_theme + theme(strip.text = element_text(size = 10), axis.text.y = element_text(size = 10), axis.text.x = element_text(size = 10, angle = 90), legend.position = 'none')
+    ggplot() + geom_point(aes(x = model_type, y = AIC,col=model_type), size = 2) +
+    ggh4x::facet_wrap2(response ~ ., scales = "free_y", ncol = 3)  +
+    P$own_theme +
+    theme(strip.text = element_text(size = 10),
+          axis.text.y = element_text(size = 10),
+          axis.text.x = element_text(size = 10, angle = 90),
+          legend.position = 'none')
   pl
 
   filepath_image = file.path(datalist$filepath_figs_dataset, sprintf("%s_AIC_all_models_lead%d.pdf", name_dataset, chosen_lead))
@@ -233,7 +239,6 @@ pick_model = function(model_list, negevent_names, datalist, name_dataset, chosen
     setNames(negevent_names)
 
   return(list(
-    # model_ci = model_ci,
     model_check_df = model_check_df,
     unconverged_models = unconverged_models,
     conv_models = conv_models,
@@ -381,14 +386,10 @@ plot_cooccur = function(name_dataset, datalist, P, model_df, chosen_lead){
               hjust = 0.5, vjust = vjust, size = size_text+1.1, family = P$font_family) +
 
     scale_color_gradient(name = "Adjusted odds ratio",
-                         # low="blue", mid = "gray", high="red", na.value = "white", # scale_color_gradient2()
                          low="yellow", high="red", na.value = "white",
-                         # midpoint = 1
     ) +
     scale_fill_gradient(name = "Adjusted odds ratio",
-                        # low="blue", mid = "gray", high="red", na.value = "white", # scale_color_gradient2()
                         low="yellow", high="red", na.value = "white",
-                        # midpoint = 1
     ) +
     guides(col = NULL, fill = guide_colourbar(title.position = "top",
                                               theme = theme(
@@ -492,7 +493,6 @@ plot_selected_cooccur = function(name_dataset, datalist, P, model_df, chosen_lea
 
     # Non-significant estimates, plot estimate and CI separately
     geom_text(data = fixed_df %>% filter(excludes_1 == FALSE), aes(x = statistic, y = response, label= ifelse(is.na(estimate), "", ci)),
-              # fontface = "bold",
               color = "grey70",
               hjust = 0.5, vjust = vjust, size = size_text, family = P$font_family) +
 
@@ -502,14 +502,10 @@ plot_selected_cooccur = function(name_dataset, datalist, P, model_df, chosen_lea
               hjust = 0.5, vjust = vjust, size = size_text+1.1, family = P$font_family) +
 
     scale_color_gradient(name = "Adjusted odds ratio",
-                         # low="blue", mid = "gray", high="red", na.value = "white", # scale_color_gradient2()
                          low="yellow", high="red", na.value = "white",
-                         # midpoint = 1
     ) +
     scale_fill_gradient(name = "Adjusted odds ratio",
-                        # low="blue", mid = "gray", high="red", na.value = "white", # scale_color_gradient2()
                         low="yellow", high="red", na.value = "white",
-                        # midpoint = 1
     ) +
     guides(col = NULL, fill = guide_colourbar(title.position = "top",
                                               theme = theme(

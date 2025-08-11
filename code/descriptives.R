@@ -219,6 +219,67 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
 
   save_plot(pl_cum_distr, file.path(datalist$filepath_figs_dataset, sprintf("%s_emp_cumulative_nr_events_per_year.pdf", name_dataset)), height = 220)
 
+  # Plot age distribution across person-years
+  pl_age = datalist$df_per_event_pp_py %>%
+    dplyr::select(p_id, age) %>% distinct() %>%
+    dplyr::mutate(dataset = !!name_dataset) %>%
+    ggplot() +
+    geom_histogram(aes(x = age, y = after_stat(count) / sum(after_stat(count)) * 100),
+                   linewidth = .3,
+                   col = 'grey30',
+                   binwidth = 1) +
+    ggh4x::facet_grid2(.~dataset) +
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = expansion(mult = c(0, .05))
+    ) +
+    labs(x = "Age (years)", y = "Percentage") +
+    P$own_theme +
+    theme(
+      plot.margin=unit(c(1, 1, 1, 1),"cm"),
+      axis.text = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      legend.title = element_text(size = 12),
+      axis.title = element_text(size = 14),
+      strip.text = element_text(size = 12)
+    )
+  pl_age
+
+  save_plot(pl_age,
+            file.path(datalist$filepath_figs_dataset, sprintf("%s_age.pdf", name_dataset)), height = 160)
+
+  # Number of available years per participant
+  temp = datalist$df_nr_negevents_pp %>%
+    dplyr::select(p_id, nr_years_obs) %>% distinct()
+  nrow(temp)
+
+  pl_nr_years_obs = datalist$df_nr_negevents_pp %>%
+    dplyr::select(p_id, nr_years_obs) %>% distinct() %>%
+    dplyr::mutate(dataset = !!name_dataset) %>%
+    ggplot() +
+    geom_histogram(aes(x = nr_years_obs, y = after_stat(count) / sum(after_stat(count)) * 100),
+                   linewidth = .3,
+                   col = 'grey30',
+                   binwidth = 1) +
+    ggh4x::facet_grid2(.~dataset) +
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = expansion(mult = c(0, .05))
+    ) +
+    labs(x = "Number of observed years", y = "Percentage") +
+    P$own_theme +
+    theme(
+      plot.margin=unit(c(1, 1, 1, 1),"cm"),
+      axis.text = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      legend.title = element_text(size = 12),
+      axis.title = element_text(size = 14),
+      strip.text = element_text(size = 12)
+    )
+  pl_nr_years_obs
+  save_plot(pl_nr_years_obs,
+            file.path(datalist$filepath_figs_dataset, sprintf("%s_nr_years_obs.pdf", name_dataset)),
+            height = 160)
+
+
   return(list(
     datalist = datalist,
     df_freq = df_freq,
@@ -227,7 +288,9 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     pl_nr_events = pl_nr_events,
     pl_nr_events_py = pl_nr_events_py,
     pl_event_distr_over_time = pl_event_distr_over_time,
-    pl_cum_distr = pl_cum_distr
+    pl_cum_distr = pl_cum_distr,
+    pl_age = pl_age,
+    pl_nr_years_obs = pl_nr_years_obs
   ))
 }
 
@@ -258,6 +321,44 @@ num_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
     distinct() %>%
     nrow()
 
+  # Number of person-years missing all adverse events
+  res$nr_all_negevents_missing = df_binary %>%
+    dplyr::select(p_id, age, sex, crosswave_h_id, wave_nr, event, event_code, occurred) %>%
+    # Only adults
+    dplyr::filter(age >= 18) %>%
+    group_by(p_id, age, sex, crosswave_h_id, wave_nr, event, event_code) %>%
+
+    # To be sure, we use summarise here, as there may be multiple occurrence in the dataset in case of HILDA
+    dplyr::summarise(nr_occur = sum(occurred == 1, na.rm = TRUE),
+                     nr_nooccur = sum(occurred == 0, na.rm = TRUE),
+                     nr_missing_occur = sum(is.na(occurred)),
+                     .groups = 'drop') %>%
+    dplyr::arrange(p_id, wave_nr, event_code) %>%
+    mutate(valence = dplyr::recode(event, !!!tibble::deframe(event_dict %>% dplyr::select(recode_var, valence)))  ) %>%
+    mutate(dependence = dplyr::recode(event, !!!tibble::deframe(event_dict %>% dplyr::select(recode_var, in_dependent)))  ) %>%
+    arrange(p_id, wave_nr) %>%
+    group_by(p_id, wave_nr) %>%
+    # Only keep person-years with all negative events missing
+    dplyr::filter((sum(nr_occur[valence == "negative"]) == 0 & sum(nr_nooccur[valence == "negative"]) == 0)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(p_id, wave_nr) %>%
+    distinct() %>%
+    nrow()
+
+  # Sex of sample
+  temp = datalist$df_per_event_pp_py %>%
+    dplyr::select(p_id, sex) %>%
+    group_by(p_id) %>% slice(1) %>% pull(sex) %>%
+    table()
+  round(temp / sum(temp) * 100, 3)
+
+  # Number of person-years and households overall sample
+  temp = datalist$df_per_event_pp_py %>%
+    dplyr::select(p_id, crosswave_h_id, age) %>% distinct()
+  res$nr_p_id_overall = nrow(temp)
+  res$nr_h_id_overall = length(unique(temp$crosswave_h_id))
+
+
   # Co-occurrence
   df_ = datalist$df_nr_negevents_pp_py %>%
     filter(!is.na(t_id)) %>%
@@ -276,6 +377,8 @@ num_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
   return(res)
 
 }
+
+
 
 # Plot descriptives of SHP and HILDA
 plots_SHP = plot_descriptives("SHP", filepath_base, P)
@@ -316,4 +419,31 @@ pl_event_distr_over_time = ((plots_SHP$pl_event_distr_over_time + theme(legend.p
 pl_event_distr_over_time
 
 save_plot(pl_event_distr_over_time, file.path(plots_SHP$datalist$filepath_figs,
-                                              sprintf("areaplot_nr_events_per_year.pdf")), height = 120)
+                                              "areaplot_nr_events_per_year.pdf"), height = 120)
+
+
+
+# Create combined plots of SHP and HILDA: Age
+pl_age = ((plots_SHP$pl_age) +
+                              (plots_HILDA$pl_age) +
+                              plot_layout(axis_titles = "collect")) +
+  guide_area() +
+  # plot_layout(guides = 'collect') +
+  plot_layout(heights = c(1, .3))
+pl_age
+
+save_plot(pl_age, file.path(plots_SHP$datalist$filepath_figs,
+                                              "age.pdf"), height = 100)
+
+
+# Number of observed years
+pl_nr_years_obs = ((plots_SHP$pl_nr_years_obs) +
+            (plots_HILDA$pl_nr_years_obs) +
+            plot_layout(axis_titles = "collect")) +
+  guide_area() +
+  # plot_layout(guides = 'collect') +
+  plot_layout(heights = c(1, .3))
+pl_nr_years_obs
+
+save_plot(pl_nr_years_obs, file.path(plots_SHP$datalist$filepath_figs,
+                            "nr_years_obs.pdf"), height = 100)
