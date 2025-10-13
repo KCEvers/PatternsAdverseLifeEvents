@@ -6,7 +6,7 @@ library(lme4)
 library(glmmTMB)
 library(DHARMa) # Model diagnostics
 library(performance) # Model diagnostics
-library(foreach)
+library(foreach) # Parallel
 library(ggplot2)
 library(patchwork)
 library(knitr) # Tables
@@ -48,6 +48,14 @@ get_parameters = function(){
   P$font_family = "nunito"
   P$dpi = 500
   P$width = 180
+
+  # Accumulation colours
+  P$sim_types = c("Empirical", "Poisson", "Frailty", "Polya urn")
+  P$col_values_accum = c(P$col_data, P$col_poisson, P$col_frailty, P$col_polya) %>%
+    stats::setNames(P$sim_types)
+  P$fill_values_accum =  c(P$fill_data, P$fill_poisson, P$fill_frailty, P$fill_polya) %>%
+    stats::setNames(P$sim_types)
+
 
   P$own_theme = ggpubr::theme_pubr(base_family = P$font_family, base_size = 16, border = F) +
               theme(
@@ -128,7 +136,7 @@ get_parameters = function(){
                        c("lertr", "Retired from the workforce", "retired", "neutral", "ambiguous", "work", 45),
                        c("lesep", "Separated from spouse", "separated_from_spouse", "negative", "dependent", "family", 65),
                        c("levio", "Victim of physical violence", "victim_physical_violence", "negative", "independent", "non-interpersonal", NA)
-                     ), ncol = 7, byrow = T ) %>%
+                     ), ncol = 7, byrow = TRUE ) %>%
                        magrittr::set_colnames(c("var_name", "description", "recode_var", "valence", "in_dependent", "domain", "HolmesRahe")) %>%
                        as.data.frame())
   return(P)
@@ -151,7 +159,7 @@ recode_events = function(df, recode_col, event_dict, df_per_event = NULL){
                 ~ dplyr::recode_factor(.x, !!!tibble::deframe(event_dict %>%
                                                                 dplyr::select(recode_var, description) %>%
                                                                 # Order events in event_dict according to frequency
-                                                                dplyr::slice(match(df_per_event %>% dplyr::arrange(nr_occur) %>% dplyr::pull(event) %>% as.character(), recode_var))), .ordered = T))
+                                                                dplyr::slice(match(df_per_event %>% dplyr::arrange(nr_occur) %>% dplyr::pull(event) %>% as.character(), recode_var))), .ordered = TRUE))
   }
   return(df)
 }
@@ -179,7 +187,7 @@ summarise_model = function(model, run_dharma = FALSE, run_diagnose = FALSE){
   out[["Wald_CI"]] = confint(model, method = "Wald")
 
   # Multicollinearity
-  if (nrow(out[["fixef_coef"]]) > 1){
+  if (nrow(out[["fixef_coef"]]) > 2){ # Including intercept, need more than one term to check for multicollinearity
     out[["multicollinearity"]] = performance::check_collinearity(model, component = "all")
   }
 
@@ -191,14 +199,12 @@ summarise_model = function(model, run_dharma = FALSE, run_diagnose = FALSE){
     # Unadjusted (Marginal) ICC: This tells you how much variance is explained by the random effects without considering fixed effects.
     # Adjusted (Conditional) ICC: This tells you how much variance is still explained by the random effects after including fixed effects.
     out[["R2"]] = performance::r2(model)
-  }
 
-  if (insight::is_mixed_model(model)){
     # If random effect variances are very small (close to zero), the model may struggle to estimate them properly
     out[["VarCorr"]] = VarCorr(model)
 
     if (run_diagnose){
-      out[["diagnose"]] = diagnose(model, check_hessian = F) # returns a logical value based on whether anything questionable was found
+      out[["diagnose"]] = diagnose(model, check_hessian = FALSE) # returns a logical value based on whether anything questionable was found
     }
   }
 
@@ -228,14 +234,15 @@ summarise_model = function(model, run_dharma = FALSE, run_diagnose = FALSE){
   out[["df_est"]] = broom.mixed::tidy(model) %>%
     # Term column in Wald CI has different names, keep to check match
     cbind(out[["profile_CI"]] %>% as.data.frame() %>%
-            tibble::rownames_to_column("term") %>% dplyr::select(-any_of(c("term", "Estimate")) ))
+            tibble::rownames_to_column("term") %>%
+            dplyr::select(-any_of(c("term", "Estimate")) ))
 
   return(out)
 }
 
 # Save plot
 save_plot = function(pl, filepath_image, height, width = 180, dpi = 500, units = "mm"){
-  ggsave(
+  ggplot2::ggsave(
     filename = filepath_image,  # File format: PNG (or TIFF for high-quality print)
     plot = pl,                 # The ggplot object
     dpi = dpi,                # Resolution in dots per inch

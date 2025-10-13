@@ -1,7 +1,7 @@
 ##### PREPARE ADVERSE LIFE EVENTS DATA FROM SHP AND HILDA #####
 
 # Master function to prepare SHP/HILDA data
-prepare_data = function(name_dataset, filepath_base, event_dicts, rerun = FALSE){
+prepare_data = function(name_dataset, filepath_base, event_dict, rerun = FALSE){
 
   # Set-up file paths and create necessary directories
   filepath_dataset = file.path(filepath_base, "data", name_dataset)
@@ -15,8 +15,6 @@ prepare_data = function(name_dataset, filepath_base, event_dicts, rerun = FALSE)
   dir.create(filepath_figs_dataset, showWarnings = FALSE)
 
   filepath_df_binary = file.path(filepath_deriv, "df_binary.RDS")
-
-  event_dict = event_dicts[[name_dataset]]
 
   # Prepare either SHP or HILDA data
   if (name_dataset == "SHP"){
@@ -500,12 +498,17 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
         nr_years_missing_in_timespan = timespan_obs_pp - nr_years_obs,
       ) %>%
       ungroup() %>%
-      mutate(valence = dplyr::recode(event, !!!tibble::deframe(event_dict %>% dplyr::select(recode_var, valence)))  ) %>%
-      mutate(dependence = dplyr::recode(event, !!!tibble::deframe(event_dict %>% dplyr::select(recode_var, in_dependent)))  ) %>%
+      mutate(valence = dplyr::recode(event,
+                                     !!!tibble::deframe(event_dict %>%
+                                                          dplyr::select(recode_var, valence)))) %>%
+      mutate(dependence = dplyr::recode(event,
+                                        !!!tibble::deframe(event_dict %>%
+                                                             dplyr::select(recode_var, in_dependent)))) %>%
       arrange(p_id, wave_nr) %>%
       # Remove years where ALL negative events were missing
       group_by(p_id, wave_nr) %>%
-      dplyr::filter(!(sum(nr_occur[valence == "negative"]) == 0 & sum(nr_nooccur[valence == "negative"]) == 0)) %>%
+      dplyr::filter(!(sum(nr_occur[valence == "negative"]) == 0 &
+                        sum(nr_nooccur[valence == "negative"]) == 0)) %>%
       dplyr::ungroup()
 
     # Should have only one row per person, wave, event combination
@@ -568,7 +571,8 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
 
     # Should be an empty dataframe, only want one entry per person per year
     stopifnot(nrow(df_nr_negevents_pp_py %>% group_by(p_id, wave_nr) %>%
-                     dplyr::summarise(n = n(), .groups = 'drop') %>% filter(n > 1)) == 0)
+                     dplyr::summarise(n = n(), .groups = 'drop') %>%
+                     filter(n > 1)) == 0)
 
     # Dataframe of overall number of negative event occurrences in the dataset
     df_nr_neg_events = df_nr_negevents_pp_py %>%
@@ -579,7 +583,8 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
 
     # Dataframe of number of negative event occurrences per person
     df_nr_negevents_pp = df_nr_negevents_pp_py %>%
-      group_by(p_id, first_obs_wave_nr_pp, last_obs_wave_nr_pp, timespan_obs_pp, nr_years_obs, nr_years_missing_in_timespan) %>%
+      group_by(p_id, first_obs_wave_nr_pp, last_obs_wave_nr_pp,
+               timespan_obs_pp, nr_years_obs, nr_years_missing_in_timespan) %>%
       dplyr::summarise(nr_occur = sum(nr_occur, na.rm = TRUE),
                        nr_nooccur = sum(nr_nooccur, na.rm = TRUE),
                        nr_missing_occur = sum(nr_missing_occur, na.rm = TRUE),

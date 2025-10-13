@@ -14,7 +14,7 @@ P = get_parameters()
 plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
 
   # Load data
-  datalist = prepare_data(name_dataset, filepath_base, P$event_dicts, rerun = rerun)
+  datalist = prepare_data(name_dataset, filepath_base, P$event_dicts[[name_dataset]], rerun = rerun)
 
   # Set height and width of figure
   if (name_dataset == "HILDA"){
@@ -298,7 +298,7 @@ plot_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
 num_descriptives = function(name_dataset, filepath_base, P, rerun = FALSE){
 
   # Load data
-  datalist = prepare_data(name_dataset, filepath_base, P$event_dicts, rerun = rerun)
+  datalist = prepare_data(name_dataset, filepath_base, P$event_dicts[[name_dataset]], rerun = rerun)
 
   # Set up storage
   res <- data.frame(dataset = name_dataset)
