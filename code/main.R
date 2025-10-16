@@ -8,28 +8,36 @@ source(file.path(filepath_base, "code/setup.R"))
 source(file.path(filepath_base, "code/prepare_data_func.R"))
 
 # Set up cluster
-nr_cl = ifelse(parallel::detectCores() > 13, 13, parallel::detectCores() - 1)
+nr_cl = ifelse(parallel::detectCores() > 13, 10, parallel::detectCores() - 1)
 cl <- parallel::makeCluster(nr_cl)
 doParallel::registerDoParallel(cl)
 
 # Get parameters
 P = get_parameters()
-rerun = TRUE # FALSE
-run_bivariate = TRUE
+rerun = FALSE#TRUE
 name_dataset = "SHP"
 events_dict = P$event_dicts[name_dataset]
 chosen_leads = c(0,1)
-chosen_lead = chosen_leads[1]
+chosen_lead = chosen_leads[2]
+
+##### DESCRIPTIVES #####
+source(file.path(filepath_base, "code/descriptives.R"))
+
+results_SHP <- run_descriptives("SHP", filepath_base, P, rerun = rerun)
+results_HILDA <- run_descriptives("HILDA", filepath_base, P, rerun = rerun)
+plot_combined_event_frequency(results_SHP, results_HILDA, filepath_base)
+plot_combined_event_over_time(results_SHP, results_HILDA, filepath_base)
+plot_combined_observation_years(results_SHP, results_HILDA, filepath_base)
 
 ##### CO-OCCURRENCE OF EVENT TYPES #####
-source(file.path(filepath_base, "code/cooccurrence_event_types3.R"))
+source(file.path(filepath_base, "code/cooccurrence_event_types.R"))
 
 # Run co-occurrence analysis for different leads for both SHP and HILDA
 chosen_leads = c(0, 1)
 SHP = run_cooccurrence("SHP", filepath_base, P, chosen_leads = chosen_leads,
-                       run_bivariate = run_bivariate, rerun = rerun)
+                       rerun = rerun)
 HILDA = run_cooccurrence("HILDA", filepath_base, P, chosen_leads = chosen_leads,
-                         run_bivariate = run_bivariate, rerun = rerun)
+                         rerun = rerun)
 parallel::stopCluster(cl)
 
 # Plot co-occurrence in heatmap
@@ -48,10 +56,8 @@ for (chosen_lead in chosen_leads){
 
 ### Compute joint and conditional probabilities
 chosen_lags = c(0, 1)
-SHP = run_joint_cond_prob("SHP", filepath_base, P,
-                          chosen_lags = chosen_lags, rerun = rerun)
-HILDA = run_joint_cond_prob("HILDA", filepath_base, P,
-                            chosen_lags = chosen_lags, rerun = rerun)
+SHP = run_joint_cond_prob("SHP", filepath_base, P, chosen_lags = chosen_lags)
+HILDA = run_joint_cond_prob("HILDA", filepath_base, P, chosen_lags = chosen_lags)
 
 # Plot joint and conditional probabilities in heatmap
 for (chosen_lag in chosen_lags){
@@ -69,7 +75,7 @@ for (chosen_lag in chosen_lags){
 
 
 ##### LAGGED EVENT COUNTS #####
-source(file.path(filepath_base, "code/lagged_event_counts2.R"))
+source(file.path(filepath_base, "code/lagged_event_counts.R"))
 
 # Run lagged analysis
 SHP = run_lagged("SHP", filepath_base, P)
@@ -105,7 +111,7 @@ create_lagged_table(summlist_SHP, summlist_HILDA)
 
 
 ##### ACCUMULATION EVENT COUNTS #####
-source(file.path(filepath_base, "code/accumulation_event_counts2.R"))
+source(file.path(filepath_base, "code/accumulation_event_counts.R"))
 
 # Fit models
 for (nr_years in c(10, 15, 20)){ # Assess for multiple years for robustness
@@ -137,8 +143,12 @@ df_HILDA = simulate_accumulation_data(HILDA, n_sim, P$sim_types) %>%
 pl_distr_SHP = plot_cum_distr("SHP", df_SHP, P, P$col_values_accum, P$fill_values_accum)
 pl_distr_HILDA = plot_cum_distr("HILDA", df_HILDA, P, P$col_values_accum, P$fill_values_accum)
 
+pl_range_SHP = plot_cum_distr_range("SHP", df_SHP, P, P$col_values_accum, P$fill_values_accum)
+pl_range_HILDA = plot_cum_distr_range("HILDA", df_HILDA, P, P$col_values_accum, P$fill_values_accum)
+
 # Create combined plot
 plot_cum_distr_combo(pl_distr_SHP, pl_distr_HILDA, filepath_base)
+plot_cum_range_combo(pl_range_SHP, pl_range_HILDA, filepath_base)
 
 # Create GIF
 

@@ -62,10 +62,11 @@ prepare_SHP = function(filepath_dataset, filepath_df_binary, event_dict, rerun){
     mutate_all(~ stringr::str_replace(.x, ": yes, no", ""))
 
   # Define different types of variables
-  id_vars = c("IDPERS", "IDHOUS", "IDSPOU", "YEAR", "STATUS", "SEX", "AGE", "CIVSTA", "COHAST",
-              "PD29", # Partner
-              "WSTAT", subj_dict$var_name
-  )
+  # id_vars = c("IDPERS", "IDHOUS", "IDSPOU", "YEAR", "STATUS", "SEX", "AGE",
+  #             "CIVSTA", "COHAST",
+  #             "PD29", # Partner
+  #             "WSTAT", subj_dict$var_name
+  # )
   le_all_var = c("PL01", "PL01A", "PL01B", "PL06", "PL11", "PL16", "PL21", "PL26", "PL35")
   le_suff_var = c("PL05A", "PL05B", "PL05", "PL10", "PL15", "PL20", "PL25", "PL30")
   le_main_var = c("PL01R", "PL06", "PL11", "PL16", "PL21", "PL26", "PL36") # Main variables with life events
@@ -91,7 +92,8 @@ prepare_SHP = function(filepath_dataset, filepath_df_binary, event_dict, rerun){
       recode_vec <- attributes(df[[col_name]])$labels
 
       # Reverse the name-value pairs
-      dplyr::recode(x, !!!tibble::deframe(tibble::enframe(recode_vec) %>% dplyr::select(value, name)))
+      dplyr::recode(x, !!!tibble::deframe(tibble::enframe(recode_vec) %>%
+                                            dplyr::select(value, name)))
     }
 
     # Clean and prepare dataframe with occurence per person per household per year per event
@@ -102,20 +104,23 @@ prepare_SHP = function(filepath_dataset, filepath_df_binary, event_dict, rerun){
       mutate(AGE = as.numeric(as.character(factor(AGE))),
              IDHOUS = as.character(IDHOUS),
              IDPERS = as.character(IDPERS)) %>%
-      dplyr::select(all_of(c("YEAR", "IDPERS", "IDHOUS", "SEX", "AGE", le_suff_var, union(le_all_var, le_main_var),
+      dplyr::select(all_of(c("YEAR", "IDPERS", "IDHOUS", "SEX", "AGE",
+                             "CIVSTA", "EDYEAR", "WSTAT",
+                             le_suff_var, union(le_all_var, le_main_var),
                              subj_dict$var_name))) %>%
 
       # Rename subjective variables
-      dplyr::rename_with(~ tibble::deframe(subj_dict %>% dplyr::select(var_name, recode_var)),
+      dplyr::rename_with(~ tibble::deframe(subj_dict %>%
+                                             dplyr::select(var_name, recode_var)),
                          matches(sprintf("^%s", subj_dict$var_name))
       ) %>%
-      mutate(across(matches(subj_dict$recode_var),
+      dplyr::mutate(across(matches(subj_dict$recode_var),
                     ~ as.numeric(as.character(.x)))
       ) %>%
 
       # Recode life event variables to 0 (did not occur) and 1 (occurred)
       mutate(across(
-        all_of(c("SEX", le_all_var)),
+        all_of(c("SEX", "CIVSTA","WSTAT", le_all_var)),
         ~ recode_col(as.numeric(as.character(.x)), cur_column(), df_raw)
       )
       ) %>%
@@ -216,10 +221,13 @@ prepare_SHP = function(filepath_dataset, filepath_df_binary, event_dict, rerun){
       filter(!all_events_missing) %>% select(-all_events_missing) %>%
 
       # Change event names
-      mutate(event = dplyr::recode_factor(event_code, !!!tibble::deframe(event_dict %>% dplyr::select(var_name, recode_var)))) %>%
+      mutate(event = dplyr::recode_factor(event_code,
+                                          !!!tibble::deframe(event_dict %>% dplyr::select(var_name, recode_var)))) %>%
       # For correspondence with HILDA dataset, rename variables
-      dplyr::rename(p_id = IDPERS, crosswave_h_id = IDHOUS, sex = SEX, age = AGE) %>%
-      mutate(wave_nr = as.numeric(as.character(YEAR)) - min(as.numeric(as.character(YEAR)), na.rm = TRUE) + 1,
+      dplyr::rename(p_id = IDPERS, crosswave_h_id = IDHOUS, sex = SEX, age = AGE,
+                    civsta = CIVSTA, edyear = EDYEAR, wstat = WSTAT) %>%
+      mutate(wave_nr = as.numeric(as.character(YEAR)) - min(as.numeric(as.character(YEAR)),
+                                                            na.rm = TRUE) + 1,
              ses = NA) %>%
       arrange(p_id, wave_nr, event_code)
 
@@ -440,7 +448,9 @@ prepare_HILDA = function(filepath_dataset, filepath_df_binary, event_dict, rerun
     # Merge dataframes
     df_binary = df_binary_ %>% merge(df_h_ids, all.x = TRUE) %>%
       # Mutate age to numeric, haven-labelled otherwise
-      mutate(age = as.numeric(as.character(factor(age))))
+      mutate(age = as.numeric(as.character(factor(age)))) %>%
+      # Add empty demographic variables to match SHP
+      dplyr::mutate(civsta = NA, edyear = NA, wstat = NA)
     df_binary %>% head
 
     saveRDS(df_binary, filepath_df_binary)
@@ -476,10 +486,13 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
 
     # Dataframe of event occurrences per event per person per year
     df_per_event_pp_py = df_binary %>%
-      dplyr::select(p_id, age, sex, crosswave_h_id, wave_nr, event, event_code, occurred) %>%
+      dplyr::select(p_id, age, sex,
+                    ses, civsta, edyear, wstat,
+                    crosswave_h_id, wave_nr, event, event_code, occurred) %>%
       # Only adults
       dplyr::filter(age >= 18) %>%
-      group_by(p_id, age, sex, crosswave_h_id, wave_nr, event, event_code) %>%
+      group_by(p_id, age, sex, ses, civsta, edyear, wstat,
+               crosswave_h_id, wave_nr, event, event_code) %>%
 
       # To be sure, we use summarise here, as there may be multiple occurrence in the dataset in case of HILDA
       dplyr::summarise(nr_occur = sum(occurred == 1, na.rm = TRUE),
@@ -514,9 +527,11 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
     # Should have only one row per person, wave, event combination
     stopifnot(nrow(df_per_event_pp_py) > 0)
     stopifnot(nrow(df_per_event_pp_py %>% group_by(p_id, wave_nr, event) %>%
-                     dplyr::summarise(n = n(), .groups = 'drop') %>% filter(n > 1)) == 0)
+                     dplyr::summarise(n = n(), .groups = 'drop') %>%
+                     filter(n > 1)) == 0)
 
-    test = df_per_event_pp_py %>% select(p_id, sex) %>%
+    test = df_per_event_pp_py %>%
+      select(p_id, sex) %>%
       group_by(p_id) %>%
       # select first sex
       slice(1) %>% ungroup() %>%
@@ -540,7 +555,9 @@ get_analysis_df = function(name_dataset, df_binary, event_dict, filepath_deriv, 
     # Dataframe of number of NEGATIVE event occurrences per person per year
     df_nr_negevents_pp_py = df_per_event_pp_py %>%
       filter(valence == "negative") %>%
-      group_by(p_id, crosswave_h_id, age, sex, wave_nr) %>%
+      group_by(p_id, crosswave_h_id, age, sex,
+               ses, civsta, edyear, wstat,
+               wave_nr) %>%
 
       # Use summarise to collapse across event dependence
       dplyr::summarise(nr_occur = sum(nr_occur),

@@ -1,4 +1,4 @@
-This repository contains the analysis scripts for the paper: ``Non-random patterns in the co-occurrence and accumulation of adverse life events in two national panel datasets" by Kyra Evers, Denny Borsboom, Eiko Fried, Fred Hasselman, František Bartoš, and Lourens Waldorp. The preprint will be made available soon.
+This repository contains the analysis scripts for the paper: ``Non-random patterns in the co-occurrence and accumulation of adverse life events in two national panel datasets" by Kyra Evers, Denny Borsboom, Eiko Fried, Fred Hasselman, František Bartoš, and Lourens Waldorp. The preprint is available [here](https://doi.org/10.21203/rs.3.rs-6688053/v1).
 
 The code is organized in the following way:
 * main.R runs all analyses on the SHP and HILDA data, using the following scripts:

@@ -520,10 +520,11 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
     # Empirical data as points
     geom_point(
       data = df %>% dplyr::filter(sim_type == "Empirical"),
-      aes(x = cumsum_nr_occur, y = frequency_norm, col = sim_type),
-      size = 1.5,
-      alpha = 0.8
+      aes(x = cumsum_nr_occur, y = frequency_norm, col = sim_type, size = t_id),
+      # size = 1.5,
+      alpha = 0.7
     ) +
+    scale_size(range = c(1.5, 1), guide = "none") +
     ggh4x::facet_grid2(
       time_label ~ dataset,
       axes = "all",
@@ -567,6 +568,85 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
   return(pl_distr)
 }
 
+
+#' Plot range of cumulative distribution of events
+plot_cum_distr_range <- function(name_dataset, df, P, col_values, fill_values,
+                             size_text = 10){
+
+  # Filter to chosen time points
+  df <- df %>%
+    dplyr::filter(t_id %in% chosen_t_ids)
+
+  # Find range
+  df_range <- df %>%
+      dplyr::group_by(sim_type, t_id, time_label) %>%
+      dplyr::summarise(min = min(cumsum_nr_occur),
+                       mean = mean(cumsum_nr_occur),
+                       median = median(cumsum_nr_occur),
+                       max = max(cumsum_nr_occur),
+                       .groups = 'drop') %>%
+    dplyr::mutate(dataset = name_dataset)
+
+  # Create range plot
+  pl_range <- df_range %>%
+    dplyr::mutate(sim_type = factor(sim_type,
+                                    levels = rev(c("Poisson", "Empirical", "Polya urn", "Frailty")))) %>%
+    ggplot(aes(y = time_label, col = sim_type)) +
+    # Error bar caps at min and max
+    geom_errorbar(
+      aes(xmin = min, xmax = max),
+      width = 0.5,
+      alpha = 1,
+      linewidth = 0.75,
+      position = position_dodge(width = 0.8)
+    ) +
+    # Median as point
+    geom_point(
+      aes(x = median),
+      alpha = 1,
+      size = 2,
+      position = position_dodge(width = 0.8)
+    ) +
+    ggh4x::facet_grid2(
+      time_label ~ dataset,
+      axes = "all",
+      switch = "y",
+      independent = "x",
+      scales = "free"
+    ) +
+    scale_color_manual(
+      name = "",
+      values = col_values,
+      breaks = names(col_values)
+    ) +
+    P$own_theme +
+    scale_x_continuous(
+      n.breaks = 4,
+      expand = expansion(mult = c(0.015, 0.015))
+    ) +
+    labs(
+      y = "",
+      x = "Number of cumulative events"
+    ) +
+    theme(legend.position = "top") +
+    theme(
+      panel.grid.major = element_line(color = "gray90", size = 0.3),
+      panel.border = element_rect(colour = "grey30", fill = NA, linewidth = 1),
+      panel.spacing.y = unit(0.75, "lines"),
+      panel.spacing.x = unit(0.01, "lines"),
+      axis.text.x = element_text(size = size_text),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      strip.text.y = element_text(size = size_text),
+      axis.title = element_text(size = size_text + 4),
+      legend.text = element_text(size = size_text + 4)
+    ) +
+    theme(plot.margin = unit(c(0, 0.5, 0, 0), 'cm'))
+
+  return(pl_range)
+}
+
+
 #' Plot SHP and HILDA's cumulative distributions together
 plot_cum_distr_combo <- function(pl_distr_SHP, pl_distr_HILDA, filepath_base){
   pl_combo <- ((pl_distr_SHP +
@@ -580,6 +660,21 @@ plot_cum_distr_combo <- function(pl_distr_SHP, pl_distr_HILDA, filepath_base){
   filepath <- file.path(filepath_base, "figs", "cumulative_nr_events.pdf")
   save_plot(pl_combo, filepath, height = 170)
 }
+
+#' Plot range of SHP and HILDA's cumulative distributions together
+plot_cum_range_combo <- function(pl_range_SHP, pl_range_HILDA, filepath_base){
+  pl_combo <- ((pl_range_SHP +
+                  theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 250, unit = "pt")) +
+                  (pl_range_HILDA + theme(strip.text.y.left = element_blank()) +
+                     theme(legend.margin = margin(t = 10, r = 20, b = 10, l = 250, unit = "pt"))) +
+                  plot_layout(axis_titles = "collect")) + guide_area() +
+                 plot_layout(guides = 'collect') + plot_layout(heights = c(1, .1)) )
+  pl_combo
+
+  filepath <- file.path(filepath_base, "figs", "cumulative_nr_events_range.pdf")
+  save_plot(pl_combo, filepath, height = 170)
+}
+
 
 #' Create animated cumulative distribution plot
 #' @param name_dataset Dataset name

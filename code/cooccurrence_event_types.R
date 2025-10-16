@@ -5,11 +5,11 @@
 #' @param filepath_base Base file path
 #' @param P Parameters list
 #' @param chosen_leads Lag values to analyze (e.g., c(0, 1))
-#' @param run_bivariate Whether to run bivariate sensitivity analysis
+#' @param run_unadjusted Whether to run unadjusted sensitivity analysis
 #' @param rerun Whether to rerun analysis
 run_cooccurrence <- function(name_dataset, filepath_base, P,
                              chosen_leads = c(0, 1),
-                             run_bivariate = TRUE,
+                             run_unadjusted = TRUE,
                              rerun = FALSE) {
 
   # 1. Prepare data
@@ -37,7 +37,7 @@ run_cooccurrence <- function(name_dataset, filepath_base, P,
       chosen_lead = chosen_lead,
       name_dataset = name_dataset,
       datalist = datalist,
-      run_bivariate = run_bivariate,
+      run_unadjusted = run_unadjusted,
       rerun = rerun
     )
 
@@ -92,7 +92,7 @@ get_event_names <- function(df_events) {
 
 #' Run all models for a specific lead/lag
 run_models_for_lead <- function(df_events, negevent_names, event_dict, chosen_lead,
-                                name_dataset, datalist, run_bivariate, rerun) {
+                                name_dataset, datalist, run_unadjusted, rerun) {
 
   # File paths
   filepath_models <- file.path(
@@ -120,11 +120,12 @@ run_models_for_lead <- function(df_events, negevent_names, event_dict, chosen_le
     model_list <- readRDS(filepath_models)
   }
 
-  # Optionally run bivariate models on same sample
-  if (run_bivariate) {
-      cat("Running bivariate sensitivity analysis...\n")
-      run_bivariate_sensitivity(
-        model_list = model_list, negevent_names = negevent_names, chosen_lead = chosen_lead,
+  # Optionally run unadjusted models on same sample
+  if (run_unadjusted) {
+      cat("Running unadjusted sensitivity analysis...\n")
+      run_unadjusted_sensitivity(
+        model_list = model_list, negevent_names = negevent_names,
+        chosen_lead = chosen_lead,
         name_dataset = name_dataset, datalist = datalist, P = P
       )
   }
@@ -261,10 +262,13 @@ get_plot_df = function(model_summ, outcome){
 #' @param P Parameters list
 #' @param model_df Model results dataframe
 #' @param chosen_lead Lag value (0 or 1)
-plot_cooccur <- function(name_dataset, datalist, P, model_df, chosen_lead) {
+plot_cooccur <- function(name_dataset, datalist, P, model_df, chosen_lead,
+                         color_lab = "Adjusted odds ratio",
+                         suffix = "") {
 
   # 1. Prepare plot data
   plot_df <- prepare_cooccur_plot_data(model_df, chosen_lead, all_events = TRUE)
+  ylab <- ifelse(chosen_lead == 0, " Outcome", "Outcome (next year)")
 
   # 2. Create fixed effects dataframe
   fixed_df <- create_fixed_effects_df(
@@ -294,7 +298,8 @@ plot_cooccur <- function(name_dataset, datalist, P, model_df, chosen_lead) {
     fixed_df = fixed_df,
     plot_params = plot_params,
     P = P,
-    ylab = plot_df$ylab
+    ylab = ylab,
+    color_lab = color_lab
   )
 
   # 6. Save plot
@@ -303,8 +308,7 @@ plot_cooccur <- function(name_dataset, datalist, P, model_df, chosen_lead) {
     datalist = datalist,
     name_dataset = name_dataset,
     chosen_lead = chosen_lead,
-    selected = FALSE,
-    run_bivariate = FALSE
+    suffix = suffix
   )
 
   return(pl_fixed)
@@ -330,6 +334,7 @@ plot_selected_cooccur <- function(name_dataset, datalist, P, model_df, chosen_le
 
   # 1. Prepare plot data
   plot_df <- prepare_cooccur_plot_data(model_df, chosen_lead, all_events = FALSE)
+  ylab <- ifelse(chosen_lead == 0, " Outcome", "Outcome (next year)")
 
   # 2. Create fixed effects dataframe
   fixed_df <- create_fixed_effects_df(
@@ -357,7 +362,7 @@ plot_selected_cooccur <- function(name_dataset, datalist, P, model_df, chosen_le
     fixed_df = fixed_df,
     plot_params = plot_params,
     P = P,
-    ylab = plot_df$ylab
+    ylab = ylab
   )
 
   # 6. Save plot
@@ -366,34 +371,67 @@ plot_selected_cooccur <- function(name_dataset, datalist, P, model_df, chosen_le
     datalist = datalist,
     name_dataset = name_dataset,
     chosen_lead = chosen_lead,
-    selected = TRUE,
-    run_bivariate = FALSE
+    suffix = "_selected"
   )
 
   return(pl_fixed)
 }
 
 
-#' Plot difference fully adjusted versus bivariate co-occurrence heatmap for all events
+#' Plot difference fully adjusted versus unadjusted co-occurrence heatmap for all events
 #' @param name_dataset Dataset name (e.g., "SHP", "HILDA")
 #' @param datalist Data list containing paths and data
 #' @param P Parameters list
-#' @param bivariate_df Model results dataframe
+#' @param unadjusted_df Model results dataframe
 #' @param chosen_lead Lag value (0 or 1)
-plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chosen_lead) {
+plot_cooccur_unadjusted <- function(name_dataset, datalist, P, unadjusted_df,
+                                    chosen_lead) {
 
   # 1. Prepare plot data
-  plot_df <- bivariate_df %>%
-    dplyr::mutate(label = ifelse(is.na(bivariate_minus_full_OR), "",
-                                 sprintf("%.2f\n", bivariate_minus_full_OR)),
-                  label_diff = ifelse(is.na(bivariate_minus_full_OR), "",
+  ylab <- ifelse(chosen_lead == 0, "Outcome", "Outcome (next year)")
+
+  # Get odds ratios
+  plot_df <- unadjusted_df %>%
+    # Exponentiate to obtain odds ratio
+    dplyr::mutate_at(c("estimate", "lower", "upper",
+                       "full_estimate", "full_lower", "full_upper"),
+                     ~ round(exp(.), 2)) %>%
+    # Determine statistical significance
+    dplyr::mutate(
+      excludes_1 = (lower < 1 & upper < 1) | (lower > 1 & upper > 1),
+      full_excludes_1 = (full_lower < 1 & full_upper < 1) | (full_lower > 1 & full_upper > 1),
+      diff_OR = estimate - full_estimate) %>%
+    dplyr::mutate(
+      label = ifelse(is.na(diff_OR), "",
+                                 sprintf("%.2f\n", diff_OR)),
+                  label_diff = ifelse(is.na(diff_OR), "",
                                       sprintf("\n%.2f - %.2f",
-                                       bivariate_OR, full_OR
-                                       ))) %>%
+                                       estimate, full_estimate
+                                       ))
+    ) %>%
+
+  # plot_df <- unadjusted_df %>%
+  #   dplyr::mutate(
+  #     pct_change = 100 * (unadjusted_OR - full_OR) / full_OR,
+  #     label = ifelse(is.na(unadjusted_OR), "",
+  #                    sprintf("%.2f\n", pct_change)),
+  #     label_diff = ifelse(is.na(unadjusted_OR), "",
+  #                         sprintf("\n%.2f → %.2f",
+  #                                 unadjusted_OR, full_OR
+  #                         ))
+
+      # label = ifelse(is.na(unadjusted_minus_full_OR), "",
+      #                            sprintf("%.2f\n", unadjusted_minus_full_OR)),
+      #             label_diff = ifelse(is.na(unadjusted_minus_full_OR), "",
+      #                                 sprintf("\n%.2f - %.2f",
+      #                                  unadjusted_OR, full_OR
+      #                                  ))
+
+      # ) %>%
     # Rename events with descriptions
     recode_events(
       .,
-      c("outcome", "predictor"),
+      c("response", "statistic"),
       P$event_dicts[[name_dataset]],
       datalist$df_per_event
     )
@@ -409,7 +447,7 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
 
     # Remove from predictors
     plot_df <- plot_df %>%
-      dplyr::filter(predictor != "Other or unspecified illness or accident")
+      dplyr::filter(statistic != "Other or unspecified illness or accident")
   }
 
   # 4. Set plot parameters
@@ -426,29 +464,16 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
   pl_fixed <- plot_df %>%
     ggplot() +
     geom_tile(
-      aes(x = predictor, y = outcome, col = bivariate_minus_full_OR, fill = bivariate_minus_full_OR),
+      aes(x = statistic, y = response, col = diff_OR, fill = diff_OR),
       alpha = 0.95,
       linewidth = 0.5
     )
 
   # Add scales and labels
-  ylab <- ifelse(chosen_lead == 0, "Outcome", "Outcome (next year)")
-
+  color_lab <- "Odds ratio difference (unadjusted - fully adjusted)"
   pl_fixed <- pl_fixed +
-    # scale_color_gradient(
-    #   name = "Odds ratio difference (bivariate - fully adjusted)",
-    #   low = "yellow",
-    #   high = "red",
-    #   na.value = "white"
-    # ) +
-    # scale_fill_gradient(
-    #   name = "Odds ratio difference (bivariate - fully adjusted)",
-    #   low = "yellow",
-    #   high = "red",
-    #   na.value = "white"
-    # ) +
     scale_fill_gradient2(
-      name = "Odds ratio difference (bivariate - fully adjusted)",
+      name = color_lab,
       low = "blue",      # negative values
       mid = "white",     # zero/midpoint
       high = "red",      # positive values
@@ -456,7 +481,7 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
       na.value = "white"
     ) +
     scale_color_gradient2(
-      name = "Odds ratio difference (bivariate - fully adjusted)",
+      name = color_lab,
       low = "blue",      # negative values
       mid = "white",     # zero/midpoint
       high = "red",      # positive values
@@ -489,7 +514,7 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
   pl_fixed <- pl_fixed +
     # Subscript
     geom_text(
-      aes(x = predictor, y = outcome,
+      aes(x = statistic, y = response,
           label = label_diff),
       hjust = 0.5,
       vjust = plot_params$vjust,
@@ -498,12 +523,12 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
     ) +
     # Point estimates (bold)
     geom_text(
-      aes(x = predictor, y = outcome,
+      aes(x = statistic, y = response,
           label = label),
       fontface = "bold",
       hjust = 0.5,
       vjust = plot_params$vjust,
-      size = plot_params$size_text + 1.1,
+      size = plot_params$size_text + .8,
       family = P$font_family
     )
 
@@ -513,8 +538,7 @@ plot_cooccur_bivariate <- function(name_dataset, datalist, P, bivariate_df, chos
     datalist = datalist,
     name_dataset = name_dataset,
     chosen_lead = chosen_lead,
-    selected = FALSE,
-    run_bivariate = TRUE
+    suffix = "_unadjusted_diff"
   )
 
   return(pl_fixed)
@@ -540,26 +564,21 @@ prepare_cooccur_plot_data <- function(model_df, chosen_lead, all_events = TRUE) 
       ) %>%
       dplyr::ungroup() %>%
       dplyr::filter(response != statistic)
-    ylab <- "Outcome"
 
   } else if (chosen_lead == 1) {
     # Remove intercept only
     plot_df <- plot_df %>%
       dplyr::filter(statistic != "(Intercept)")
-    ylab <- "Outcome (next year)"
   }
 
-  return(list(
-    df = plot_df,
-    ylab = ylab
-  ))
+  return(plot_df)
 }
 
 
 #' Create fixed effects dataframe with odds ratios
 create_fixed_effects_df <- function(plot_df, name_dataset, datalist, P) {
 
-  fixed_df <- plot_df$df %>%
+  fixed_df <- plot_df %>%
     dplyr::filter(subplot == "fixed") %>%
     # Exponentiate to obtain odds ratio
     dplyr::mutate_at(c("estimate", "lower", "upper"), ~ round(exp(.), 2)) %>%
@@ -636,7 +655,8 @@ get_plot_parameters <- function(name_dataset, selected = FALSE) {
 # ============================================================================
 
 #' Create odds ratio heatmap
-create_odds_ratio_heatmap <- function(fixed_df, plot_params, P, ylab) {
+create_odds_ratio_heatmap <- function(fixed_df, plot_params, P, ylab,
+                                      color_lab = "Adjusted odds ratio") {
 
   # Build theme
   adapt_theme <- build_heatmap_theme(plot_params, P)
@@ -669,13 +689,13 @@ create_odds_ratio_heatmap <- function(fixed_df, plot_params, P, ylab) {
   # Add scales and labels
   pl_fixed <- pl_fixed +
     scale_color_gradient(
-      name = "Adjusted odds ratio",
+      name = color_lab,
       low = "yellow",
       high = "red",
       na.value = "white"
     ) +
     scale_fill_gradient(
-      name = "Adjusted odds ratio",
+      name = color_lab,
       low = "yellow",
       high = "red",
       na.value = "white"
@@ -818,19 +838,14 @@ add_text_layers_nonsignificant <- function(pl, fixed_df, plot_params, P) {
 
 #' Save co-occurrence plot
 save_cooccur_plot <- function(plot, datalist, name_dataset, chosen_lead,
-                              selected = FALSE, run_bivariate = FALSE) {
+                              suffix = "") {
 
   # Determine height
   height <- ifelse(name_dataset == "HILDA", 200, 200)
 
   # Build filename
-  filename <- if (selected) {
-    sprintf("%s_heatmap_odds_ratio_selected%s_lead%d.pdf", name_dataset,
-            ifelse(run_bivariate, "_bivariate", ""), chosen_lead)
-  } else {
-    sprintf("%s_heatmap_odds_ratio%s_lead%d.pdf", name_dataset,
-            ifelse(run_bivariate, "_bivariate", ""), chosen_lead)
-  }
+  filename <-  sprintf("%s_heatmap_odds_ratio%s_lead%d.pdf",
+                       name_dataset, suffix, chosen_lead)
 
   # Build filepath
   filepath_image <- file.path(datalist$filepath_figs_dataset, filename)
@@ -989,62 +1004,123 @@ fit_model_variants <- function(formulas, df_model) {
 
 
 # ============================================================================
-# BIVARIATE SENSITIVITY ANALYSIS
+# UNADJUSTED SENSITIVITY ANALYSIS
 # ============================================================================
 
-#' Run bivariate models
-run_bivariate_sensitivity <- function(model_list, negevent_names, chosen_lead,
+#' Run unadjusted models
+run_unadjusted_sensitivity <- function(model_list, negevent_names, chosen_lead,
                                       name_dataset, datalist, P
                                       ) {
 
-  # Fit bivariate models
-  filepath_bivariate <- file.path(
+  # Fit unadjusted models
+  filepath_unadjusted <- file.path(
     datalist$filepath_deriv,
-    sprintf("cooccurrence_event_types_bivariate_lead%d.RDS", chosen_lead)
+    sprintf("cooccurrence_event_types_unadjusted_lead%d.RDS", chosen_lead)
   )
 
-  cat("Fitting bivariate models...\n")
+  cat("Fitting unadjusted models...\n")
 
-  if (!file.exists(filepath_bivariate) || rerun) {
+  if (!file.exists(filepath_unadjusted) || rerun) {
     start_t = Sys.time()
 
-    bivariate_models <- fit_bivariate_models(model_list, negevent_names,
+    unadjusted_models <- fit_unadjusted_models(model_list, negevent_names,
                                              chosen_lead)
-    saveRDS(bivariate_models, filepath_bivariate)
+    saveRDS(unadjusted_models, filepath_unadjusted)
 
     cat(sprintf("Time elapsed: %s\n", format(Sys.time() - start_t)))
   }
-  bivariate_models <- readRDS(filepath_bivariate)
+  unadjusted_models <- readRDS(filepath_unadjusted)
 
   # Plot difference
-  bivariate_df <- data.frame(
-      outcome = unlist(lapply(bivariate_models, `[[`, "outcome")),
-      predictor = unlist(lapply(bivariate_models, `[[`, "predictor")),
-      full_OR = unlist(lapply(bivariate_models, `[[`, "full_OR")),
-      bivariate_OR = unlist(lapply(bivariate_models, `[[`, "bivariate_OR"))
+  unadjusted_df <- lapply(unadjusted_models, function(x){
+    data.frame(subplot = "fixed",
+      response = x[["outcome"]],
+      statistic = x[["predictor"]],
+      estimate = x[["unadjusted_est"]],
+      lower = x[["unadjusted_lower"]],
+      upper = x[["unadjusted_upper"]],
+      full_estimate = x[["full_est"]],
+      full_lower = x[["full_lower"]],
+      full_upper = x[["full_upper"]]
+               )
+  }) %>% do.call(rbind, .) %>% as.data.frame()
+
+  plot_cooccur(name_dataset, datalist, P, unadjusted_df, chosen_lead,
+               color_lab = "Unadjusted odds ratio",
+               suffix = "_unadjusted")
+
+  # Get odds ratios
+  comp_df <- unadjusted_df %>%
+    # Exponentiate to obtain odds ratio
+    dplyr::mutate_at(c("estimate", "lower", "upper",
+                     "full_estimate", "full_lower", "full_upper"),
+                   ~ round(exp(.), 2)) %>%
+    # Determine statistical significance
+    dplyr::mutate(
+      excludes_1 = (lower < 1 & upper < 1) | (lower > 1 & upper > 1),
+      full_excludes_1 = (full_lower < 1 & full_upper < 1) | (full_lower > 1 & full_upper > 1)
     )
-  bivariate_df[["bivariate_minus_full_OR"]] = bivariate_df[["bivariate_OR"]] - bivariate_df[["full_OR"]]
 
-  plot_cooccur_bivariate(name_dataset, datalist, P, bivariate_df, chosen_lead)
+  # head(comp_df)
 
-    # or_full = exp(estimate_full),
-    # or_bivariate = exp(estimate_bivariate),
-    # pct_change = 100 * (or_bivariate - or_full) / or_full,
-    # abs_pct_change = abs(pct_change),
-    # substantial_change = abs_pct_change > 10
+  # Which event combinations show different results for unadjusted vs. adjusted?
+  cat("\nEvent combinations where the unadjusted model shows a significant relationship, but the adjusted model does not:\n")
+  print(comp_df %>% dplyr::filter(excludes_1, !full_excludes_1) )
 
+  cat("\nEvent combinations where the unadjusted model does not show a significant relationship, but the adjusted model does:\n")
+  print(comp_df %>% dplyr::filter(!excludes_1, full_excludes_1) )
+
+  # Different conclusions
+  cat("\nEvent combinations where the unadjusted and adjusted model disagree on whether the association is positive (OR > 1) or negative (OR < 1), for models which show a significant difference in either the unadjusted and/or the adjusted model:\n")
+  print(comp_df %>%
+      # dplyr::filter(excludes_1 != full_excludes_1) %>%
+      dplyr::filter(excludes_1 | full_excludes_1) %>%
+      dplyr::filter(estimate > 1 & full_estimate < 1 | estimate < 1 & full_estimate > 1))
+
+  # Different conclusions
+  cat("\nEvent combinations where the adjusted model is significant, and the unadjusted and adjusted model disagree on whether the association is positive (OR > 1) or negative (OR < 1):\n")
+  print(comp_df %>%
+          dplyr::filter(full_excludes_1) %>%
+          dplyr::filter(estimate > 1 & full_estimate < 1 | estimate < 1 & full_estimate > 1))
+
+  cat("\nChange in size of association:\n")
+  x <- comp_df %>%
+          dplyr::mutate(pct_change = 100 * (estimate - full_estimate) / full_estimate) %>%
+    dplyr::pull(pct_change)
+  x <- x[!is.na(x)]
+  print(sprintf("\nMean: %.2f; Median: %.2f; Variance: %.2f; SD: %.2f",
+                mean(x), median(x), var(x), sd(x)))
+
+
+
+  # unadjusted_df <- data.frame(
+  #     outcome = unlist(lapply(unadjusted_models, `[[`, "outcome")),
+  #     predictor = unlist(lapply(unadjusted_models, `[[`, "predictor")),
+  #     full_OR = exp(unlist(lapply(unadjusted_models, `[[`, "full_est"))),
+  #     unadjusted_OR = exp(unlist(lapply(unadjusted_models, `[[`, "unadjusted_est")))
+  #   )
+  # unadjusted_df[["unadjusted_minus_full_OR"]] = unadjusted_df[["unadjusted_OR"]] - unadjusted_df[["full_OR"]]
+  #
+  # # Check if any OR are different in direction
+  # check <- unadjusted_df
+  # check2 <- check[check[["unadjusted_OR"]] > 1 & check[["full_OR"]] < 1 | check[["unadjusted_OR"]] < 1 & check[["full_OR"]] > 1, ]
+  # print(check2)
+
+
+  # plot_cooccur_unadjusted(name_dataset, datalist, P, unadjusted_df,
+  #                                     chosen_lead)
 
   return(NULL)
 }
 
 
 
-#' Fit bivariate models using same sample as full models
-fit_bivariate_models <- function(model_list, negevent_names, chosen_lead) {
+#' Fit unadjusted models using same sample as full models
+fit_unadjusted_models <- function(model_list, negevent_names, chosen_lead) {
 
   n <- length(model_list)
 
-  bivariate_models <- foreach::foreach(
+  unadjusted_models <- foreach::foreach(
     i = rep(1:n, each = n), # outcome
     j = rep(1:n, n), # predictor
     .packages = c("glmmTMB", "dplyr", "purrr", "broom.mixed"),
@@ -1066,9 +1142,11 @@ fit_bivariate_models <- function(model_list, negevent_names, chosen_lead) {
         predictor = predictor,
         model_df = NA,
         full_est = NA,
-        bivariate_est = NA,
-        full_OR = NA,
-        bivariate_OR = NA
+        unadjusted_est = NA,
+        full_lower = NA,
+        full_upper = NA,
+        unadjusted_lower = NA,
+        unadjusted_upper = NA
       ))
     }
 
@@ -1083,9 +1161,11 @@ fit_bivariate_models <- function(model_list, negevent_names, chosen_lead) {
         predictor = predictor,
         model_df = NA,
         full_est = NA,
-        bivariate_est = NA,
-        full_OR = NA,
-        bivariate_OR = NA
+        unadjusted_est = NA,
+        full_lower = NA,
+        full_upper = NA,
+        unadjusted_lower = NA,
+        unadjusted_upper = NA
       ))
     }
 
@@ -1094,7 +1174,7 @@ fit_bivariate_models <- function(model_list, negevent_names, chosen_lead) {
     incl_p_id <- "p_id" %in% names(nr_obs)
     incl_h_id <- "crosswave_h_id" %in% names(nr_obs)
 
-    # Build bivariate formula
+    # Build unadjusted formula
     outcome_var <- if (chosen_lead > 0) paste0("lead_", outcome) else outcome
     formula <- paste0(outcome_var, " ~ ", predictor,
                       ifelse(incl_p_id, " + (1 | p_id)", ""),
@@ -1117,33 +1197,35 @@ fit_bivariate_models <- function(model_list, negevent_names, chosen_lead) {
     # Extract model estimates
     model_df <- broom.mixed::tidy(model, effects = "fixed")
 
+    ci_df <- as.data.frame(confint(model)) %>%
+      tibble::rownames_to_column("term")
+    unadjusted_lower <- ci_df[ci_df[["term"]] == predictor, ][["2.5 %"]]
+    unadjusted_upper <- ci_df[ci_df[["term"]] == predictor, ][["97.5 %"]]
+
+
     # Get difference in estimate
     model_df_orig <- model_list[[i]]$model_df
     full_est <- model_df_orig[model_df_orig[["statistic"]] == predictor, ][["estimate"]]
-    bivariate_est <- model_df[model_df[["term"]] == predictor, ][["estimate"]]
+    full_lower <- model_df_orig[model_df_orig[["statistic"]] == predictor, ][["lower"]]
+    full_upper <- model_df_orig[model_df_orig[["statistic"]] == predictor, ][["upper"]]
+    unadjusted_est <- model_df[model_df[["term"]] == predictor, ][["estimate"]]
 
-    cat(sprintf("  Odds Ratio Difference: %.4f\n", exp(full_est) - exp(bivariate_est)))
+    cat(sprintf("  Odds Ratio Difference: %.4f\n", exp(full_est) - exp(unadjusted_est)))
 
     return(list(
       outcome = outcome,
       predictor = predictor,
-      # model = model,
-      # model_summ = model_summ,
-      # model_df_orig = model_df_orig,
       model_df = model_df,
       full_est = full_est,
-      bivariate_est = bivariate_est,
-      full_OR = exp(full_est),
-      bivariate_OR = exp(bivariate_est)
-      # OR_controlled_minus_bivariate = exp(orig_est) - exp(biv_est),
-      # OR_bivariate_minus_controlled = exp(biv_est) - exp(orig_est)
+      unadjusted_est = unadjusted_est,
+      full_lower = full_lower,
+      full_upper = full_upper,
+      unadjusted_lower = unadjusted_lower,
+      unadjusted_upper = unadjusted_upper
     ))
   }
 
-  # est <- unlist(lapply(bivariate_models, `[[`, "OR_controlled_minus_bivariate"))
-  # hist(est)
-
-  return(bivariate_models)
+  return(unadjusted_models)
 }
 
 
