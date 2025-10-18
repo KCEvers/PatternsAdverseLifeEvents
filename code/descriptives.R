@@ -12,7 +12,7 @@ run_descriptives <- function(name_dataset, filepath_base, P, rerun = FALSE) {
   # 1. Prepare data
   cat("\n=== Preparing data ===\n")
   event_dict <- P$event_dicts[[name_dataset]]
-  datalist <- prepare_data(name_dataset, filepath_base, event_dict, rerun = rerun)
+  datalist <- prepare_data(name_dataset, filepath_base, event_dict)
 
   # 2. Calculate frequency statistics
   cat("\n=== Calculating frequencies ===\n")

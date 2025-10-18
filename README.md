@@ -11,7 +11,7 @@ The code is organized in the following way:
 
 The resulting figures can be found in the `figs` folder.
 
-The SHP data is available at https://www.swissubase.ch/en/catalogue/studies/6097/20179/overview, with instructions for download at https://forscenter.ch/projects/swiss-household-panel/data. Access to the HILDA dataset can be requested at https://dataverse.ada.edu.au/dataverse/DSSLongitudinalStudies. 
+The SHP data is available at [https://www.swissubase.ch/en/catalogue/studies/6097/20179/overview](https://www.swissubase.ch/en/catalogue/studies/6097/20179/overview), with instructions for download at [https://forscenter.ch/projects/swiss-household-panel/data](https://forscenter.ch/projects/swiss-household-panel/data). Access to the HILDA dataset can be requested at [https://dataverse.ada.edu.au/dataverse/DSSLongitudinalStudies](https://dataverse.ada.edu.au/dataverse/DSSLongitudinalStudies). 
 
 For any questions, please contact Kyra Evers at kyra.c.evers@gmail.com.
 

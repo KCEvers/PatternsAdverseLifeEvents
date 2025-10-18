@@ -14,11 +14,7 @@ doParallel::registerDoParallel(cl)
 
 # Get parameters
 P = get_parameters()
-rerun = FALSE#TRUE
-name_dataset = "SHP"
-events_dict = P$event_dicts[name_dataset]
-chosen_leads = c(0,1)
-chosen_lead = chosen_leads[2]
+rerun = FALSE
 
 ##### DESCRIPTIVES #####
 source(file.path(filepath_base, "code/descriptives.R"))
@@ -78,8 +74,8 @@ for (chosen_lag in chosen_lags){
 source(file.path(filepath_base, "code/lagged_event_counts.R"))
 
 # Run lagged analysis
-SHP = run_lagged("SHP", filepath_base, P)
-HILDA = run_lagged("HILDA", filepath_base, P)
+SHP = run_lagged("SHP", filepath_base, P, rerun = rerun)
+HILDA = run_lagged("HILDA", filepath_base, P, rerun = rerun)
 
 # Model convergence
 print(SHP$df_convergence)
@@ -150,14 +146,13 @@ pl_range_HILDA = plot_cum_distr_range("HILDA", df_HILDA, P, P$col_values_accum, 
 plot_cum_distr_combo(pl_distr_SHP, pl_distr_HILDA, filepath_base)
 plot_cum_range_combo(pl_range_SHP, pl_range_HILDA, filepath_base)
 
-# Create GIF
-
 ### Heavy tails
-SHP_tails = run_heavy_tails("SHP", SHP$df_accum, SHP$datalist)
-HILDA_tails = run_heavy_tails("HILDA", HILDA$df_accum, HILDA$datalist)
+SHP_tails = run_heavy_tails("SHP", SHP$df_accum, SHP$datalist, P)
+HILDA_tails = run_heavy_tails("HILDA", HILDA$df_accum, HILDA$datalist, P)
 
 # Create table with estimates
 create_heavy_tails_table(SHP_tails$df_est, HILDA_tails$df_est)
 
 # Plot heavy tails
 plot_heavy_tails(SHP_tails$pl, HILDA_tails$pl, filepath_base)
+

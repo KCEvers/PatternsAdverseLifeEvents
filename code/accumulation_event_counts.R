@@ -571,7 +571,8 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
 
 #' Plot range of cumulative distribution of events
 plot_cum_distr_range <- function(name_dataset, df, P, col_values, fill_values,
-                             size_text = 10){
+                             size_text = 10,
+                             chosen_t_ids = c(1, 5, 10, 15, 20)){
 
   # Filter to chosen time points
   df <- df %>%
