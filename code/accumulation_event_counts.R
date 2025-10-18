@@ -522,7 +522,7 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
       data = df %>% dplyr::filter(sim_type == "Empirical"),
       aes(x = cumsum_nr_occur, y = frequency_norm, col = sim_type, size = t_id),
       # size = 1.5,
-      alpha = 0.7
+      alpha = 0.85
     ) +
     scale_size(range = c(1.5, 1), guide = "none") +
     ggh4x::facet_grid2(
@@ -1028,17 +1028,19 @@ run_heavy_tails <- function(name_dataset, df_accum, datalist, P) {
   pl <- df_fitted %>%
     dplyr::mutate(dataset = name_dataset) %>%
     ggplot() +
-    geom_line(
-      aes(x = x, y = y, col = type),
-      linewidth = 1,
-      linetype = 'dashed'
-    ) +
     geom_point(
       data = df_emp,
       aes(x = x, y = y),
-      size = 0.8,
-      col = 'red'
+      size = 1,
+      col = 'red', alpha = .9
     ) +
+    geom_line(
+      aes(x = x, y = y, col = type),
+      linewidth = .65,
+      # linetype = 'dashed',
+      alpha = 1
+    ) +
+
     ggh4x::facet_grid2(. ~ dataset) +
     scale_x_continuous(
       trans = "log10",
