@@ -73,6 +73,7 @@ run_accumulation <- function(name_dataset, filepath_base, P,
     )
 
     saveRDS(results, filepath)
+    rm(df_accum, envir = .GlobalEnv)
   }
   results <- readRDS(filepath)
 
@@ -591,7 +592,7 @@ plot_cum_distr_range <- function(name_dataset, df, P, col_values, fill_values,
   # Create range plot
   pl_range <- df_range %>%
     dplyr::mutate(sim_type = factor(sim_type,
-                                    levels = rev(c("Poisson", "Empirical", "Polya urn", "Frailty")))) %>%
+                                    levels = rev(c("Empirical", "Poisson", "Frailty", "Polya urn")))) %>%
     ggplot(aes(y = time_label, col = sim_type)) +
     # Error bar caps at min and max
     geom_errorbar(
@@ -1139,7 +1140,7 @@ create_heavy_tails_table <- function(SHP_tails, HILDA_tails) {
     kableExtra::kbl(
       format = "latex",
       escape = FALSE,
-      caption = "Model estimates of distributions fit to twenty-year cumulative adverse life event counts (Source: Swiss Household Panel, SHP and Household, Income and Labour Dynamics in Australia Survey, HILDA).",
+      caption = "Model estimates of distributions fit to twenty-year cumulative adverse life event counts (Source: Swiss Household Panel, SHP and Household, Income and Labour Dynamics in Australia Survey, HILDA). The log-likelihood ratio compares the fit of the log-normal model to an alternative model (Poisson, exponential, power-law). Positive values indicate the log-normal model fits better, whereas negative values favour the alternative model. The two-sided p-value tests whether the difference in fit is statistically significant.",
       booktabs = TRUE,
       label = "heavytails",
       col.names = NULL

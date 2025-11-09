@@ -1,6 +1,6 @@
 ##### COMPLETE ANALYSIS OF ADVERSE LIFE EVENTS #####
 # Get base filepath
-filepath_base = dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
+filepath_base = here::here() #dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
 stopifnot("Empty base filepath!" = nzchar(filepath_base))
 
 # Load functions
