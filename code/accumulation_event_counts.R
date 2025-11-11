@@ -541,7 +541,8 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
     P$own_theme +
     scale_y_continuous(
       position = "right",
-      expand = expansion(mult = c(0.02, 0.08)),
+      labels = function(x) sprintf("%.2f", x),
+      expand = expansion(mult = c(0.03, 0.08)),
       n.breaks = 3
     ) +
     scale_x_continuous(
@@ -554,7 +555,8 @@ plot_cum_distr <- function(name_dataset, df, P, col_values, fill_values,
     ) +
     theme(legend.position = "top") +
     theme(
-      panel.grid.major = element_line(color = "gray90", size = 0.3),
+      # panel.grid.major = element_line(color = "gray90", size = 0.3),
+      panel.grid.major = element_blank(),
       panel.border = element_rect(colour = "grey30", fill = NA, linewidth = 1),
       panel.spacing.y = unit(0.75, "lines"),
       panel.spacing.x = unit(0.01, "lines"),

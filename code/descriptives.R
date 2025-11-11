@@ -584,15 +584,6 @@ plot_demo_distribution <- function(datalist, name_dataset, P,
         dplyr::mutate(subsample = ifelse(nr_years > 0,
                                          sprintf("Observed for %d consecutive years", nr_years),
                                          "Full sample"))
-    # temp <- temp %>%
-    #   dplyr::mutate(value = ifelse(variable == "age",
-    #                                as.numeric(value), value))
-    #
-    # temp <- temp %>%
-    #   dplyr::mutate(value = dplyr::case_when(
-    #     variable == "age" ~ as.character(as.numeric(value)),
-    #     TRUE ~ value
-    #   ))
 
     if (name_dataset == "SHP"){
       temp <- temp %>%
@@ -628,8 +619,6 @@ plot_demo_distribution <- function(datalist, name_dataset, P,
   if (name_dataset == "SHP"){
     range_edyears <- range(as.numeric(df_demo[df_demo[["variable"]] == "Education\nYears", "value"]))
     scales <- list(
-      # scale_x_continuous(n.breaks = 4,
-                         # expand = expansion(mult = c(0, 0.075))),
       scale_x_discrete(breaks = c("20", "40", "60", "80"),
                        limits = as.character(seq(range_age[1], range_age[2]))),
       scale_x_discrete(), scale_x_discrete(),
@@ -640,8 +629,6 @@ plot_demo_distribution <- function(datalist, name_dataset, P,
     range_ses <- range(as.numeric(df_demo[df_demo[["variable"]] == "Socio-Economic\nStatus", "value"]))
 
     scales <- list(
-      # scale_x_continuous(n.breaks = 4,
-      # expand = expansion(mult = c(0, 0.075))),
       scale_x_discrete(breaks = c("20", "40", "60", "80"),
                        limits = as.character(seq(range_age[1], range_age[2]))),
       scale_x_discrete(),
@@ -662,18 +649,16 @@ plot_demo_distribution <- function(datalist, name_dataset, P,
     ggh4x::facet_grid2(
       subsample ~ variable,
       scales = "free",
-      # ncol = 2,
       switch = 'y',
       independent = "y",
-      # dir = 'v',
       labeller = label_wrap_gen(12)
     ) +
     scale_y_continuous(
       n.breaks = 3,
       expand = expansion(add = c(0, 0)),
+      labels = function(x) sprintf("%.2f", x),
       position = "right"
     ) +
-    # scale_x_continuous(expand = expansion(mult = c(0.01, 0))) +
     theme(
       panel.spacing.y = unit(0.45, "lines"),
       title = element_text(size = 10),
